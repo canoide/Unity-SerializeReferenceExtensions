@@ -7,6 +7,10 @@ using UnityEngine;
 /// </summary>
 [AttributeUsage(AttributeTargets.Field,AllowMultiple = false)]
 public sealed class SubclassSelectorAttribute : PropertyAttribute {
-	
+	public bool ShowDefaultDrawerWhenIsNotGeneric { get; }
+	public SubclassSelectorAttribute(bool showDefaultDrawerWhenIsNotGeneric = false)
+	{
+		ShowDefaultDrawerWhenIsNotGeneric = showDefaultDrawerWhenIsNotGeneric;
+	}
 }
 #endif
