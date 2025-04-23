@@ -134,6 +134,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
 		PropertyDrawer GetCustomPropertyDrawer (SerializedProperty property)
 		{
+			if (property.propertyType != SerializedPropertyType.ManagedReference) return null;
 			Type propertyType = ManagedReferenceUtility.GetType(property.managedReferenceFullTypename);
 			if (propertyType != null && PropertyDrawerCache.TryGetPropertyDrawer(propertyType, out PropertyDrawer drawer))
 			{
