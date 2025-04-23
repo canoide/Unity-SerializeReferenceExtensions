@@ -12,5 +12,11 @@ public sealed class SubclassSelectorAttribute : PropertyAttribute
 	// NOTE: Use managedReferenceValue getter to invoke instance method in SubclassSelectorDrawer.
 	public bool UseToStringAsLabel { get; set; }
 #endif
+	
+	public bool ShowDefaultDrawerWhenIsNotGeneric { get; }
+	public SubclassSelectorAttribute(bool showDefaultDrawerWhenIsNotGeneric = false)
+	{
+		ShowDefaultDrawerWhenIsNotGeneric = showDefaultDrawerWhenIsNotGeneric;
+	}
 
 }

@@ -126,7 +126,10 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 			}
 			else
 			{
-				EditorGUI.LabelField(position, label, k_IsNotManagedReferenceLabel);
+				if (((SubclassSelectorAttribute)attribute).ShowDefaultDrawerWhenIsNotGeneric)
+					EditorGUI.PropertyField(position, property, label, true);
+				else
+					EditorGUI.LabelField(position, label, k_IsNotManagedReferenceLabel);
 			}
 
 			EditorGUI.EndProperty();
