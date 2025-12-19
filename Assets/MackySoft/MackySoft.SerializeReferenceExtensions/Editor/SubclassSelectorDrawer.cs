@@ -259,10 +259,12 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 				var state = new AdvancedDropdownState();
 
 				Type baseType = ManagedReferenceUtility.GetType(managedReferenceFieldTypename);
+				var subclassSelectorAttribute = (SubclassSelectorAttribute)attribute;
 				var popup = new AdvancedTypePopup(
 					TypeSearch.GetTypes(baseType),
 					k_MaxTypePopupLineCount,
-					state
+					state,
+					subclassSelectorAttribute.ShowFullNamespace
 				);
 				popup.OnItemSelected += item => {
 					Type type = item.Type;
