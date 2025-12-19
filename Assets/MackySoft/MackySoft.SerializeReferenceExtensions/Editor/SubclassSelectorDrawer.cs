@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
+using UnityEngine.UIElements;
+using UnityEditor.UIElements;
 
 namespace MackySoft.SerializeReferenceExtensions.Editor
 {
@@ -29,6 +31,77 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 		readonly Dictionary<string,GUIContent> m_TypeNameCaches = new Dictionary<string,GUIContent>();
 
 		SerializedProperty m_TargetProperty;
+
+		public override VisualElement CreatePropertyGUI (SerializedProperty property)
+		{
+			if (property.propertyType != SerializedPropertyType.ManagedReference)
+			{
+				return new Label("The property type is not manage reference.");
+			}
+
+			var container = new VisualElement();
+
+			var targetProperty = property.Copy();
+
+			Action refresh = null;
+			refresh = () => {
+				container.Clear();
+
+				// Header
+				var header = new VisualElement();
+				header.style.flexDirection = FlexDirection.Row;
+				header.AddToClassList(BaseField<object>.ussClassName);
+				header.AddToClassList(BaseField<object>.alignedFieldUssClassName);
+
+				var label = new Label(targetProperty.displayName);
+				label.AddToClassList(BaseField<object>.labelUssClassName);
+				header.Add(label);
+
+				// Button
+				var button = new Button();
+				button.AddToClassList(BaseField<object>.inputUssClassName);
+				button.style.unityTextAlign = TextAnchor.MiddleLeft;
+
+				button.text = GetTypeName(targetProperty).text;
+				button.clicked += () => {
+					m_TargetProperty = targetProperty;
+					TypePopupCache popup = GetTypePopup(targetProperty);
+
+					Action<AdvancedTypePopupItem> callback = null;
+					callback = item => {
+						popup.TypePopup.OnItemSelected -= callback;
+						refresh();
+					};
+					popup.TypePopup.OnItemSelected += callback;
+
+					popup.TypePopup.Show(button.worldBound);
+				};
+				header.Add(button);
+				container.Add(header);
+
+				// Property Drawer for value
+				if (targetProperty.managedReferenceValue != null) {
+					var body = new VisualElement();
+					body.style.paddingLeft = 15; // Indent
+
+					var endProperty = targetProperty.GetEndProperty();
+					var iterator = targetProperty.Copy();
+					iterator.NextVisible(true); // Enter children
+
+					while (!SerializedProperty.EqualContents(iterator, endProperty)) {
+						var propertyField = new PropertyField(iterator.Copy());
+						propertyField.Bind(targetProperty.serializedObject);
+						body.Add(propertyField);
+						iterator.NextVisible(false);
+					}
+					container.Add(body);
+				}
+			};
+
+			refresh();
+
+			return container;
+		}
 
 		public override void OnGUI (Rect position, SerializedProperty property, GUIContent label)
 		{
