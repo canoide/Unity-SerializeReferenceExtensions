@@ -57,12 +57,23 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 				label.AddToClassList(BaseField<object>.labelUssClassName);
 				header.Add(label);
 
-				// Button
+				// Dropdown-like Button
 				var button = new Button();
 				button.AddToClassList(BaseField<object>.inputUssClassName);
+				button.AddToClassList("unity-popup-field__input");
+				button.style.flexGrow = 1;
 				button.style.unityTextAlign = TextAnchor.MiddleLeft;
 
-				button.text = GetTypeName(targetProperty).text;
+				var textElement = new TextElement();
+				textElement.text = GetTypeName(targetProperty).text;
+				textElement.style.flexGrow = 1;
+				textElement.style.marginLeft = 3;
+				button.Add(textElement);
+
+				var arrowElement = new VisualElement();
+				arrowElement.AddToClassList("unity-popup-field__arrow");
+				button.Add(arrowElement);
+
 				button.clicked += () => {
 					m_TargetProperty = targetProperty;
 					TypePopupCache popup = GetTypePopup(targetProperty);
