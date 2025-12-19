@@ -84,15 +84,39 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 					var body = new VisualElement();
 					body.style.paddingLeft = 15; // Indent
 
-					var endProperty = targetProperty.GetEndProperty();
-					var iterator = targetProperty.Copy();
-					iterator.NextVisible(true); // Enter children
+					// Check Custom Drawer
+					PropertyDrawer customDrawer = GetCustomPropertyDrawer(targetProperty);
+					if (customDrawer != null) {
+						VisualElement customElement = null;
+						try {
+							customElement = customDrawer.CreatePropertyGUI(targetProperty);
+						} catch (System.Exception ex) {
+							Debug.LogWarning("Failed to create property GUI for custom drawer: " + ex);
+						}
 
-					while (!SerializedProperty.EqualContents(iterator, endProperty)) {
-						var propertyField = new PropertyField(iterator.Copy());
-						propertyField.Bind(targetProperty.serializedObject);
-						body.Add(propertyField);
-						iterator.NextVisible(false);
+						if (customElement != null) {
+							body.Add(customElement);
+						} else {
+							// Fallback to IMGUI
+							var imguiContainer = new IMGUIContainer(() => {
+								float height = customDrawer.GetPropertyHeight(targetProperty, GUIContent.none);
+								Rect rect = EditorGUILayout.GetControlRect(true, height);
+								customDrawer.OnGUI(rect, targetProperty, GUIContent.none);
+							});
+							body.Add(imguiContainer);
+						}
+					} else {
+						// Default drawing: iterate children
+						var endProperty = targetProperty.GetEndProperty();
+						var iterator = targetProperty.Copy();
+						iterator.NextVisible(true); // Enter children
+
+						while (!SerializedProperty.EqualContents(iterator, endProperty)) {
+							var propertyField = new PropertyField(iterator.Copy());
+							propertyField.Bind(targetProperty.serializedObject);
+							body.Add(propertyField);
+							iterator.NextVisible(false);
+						}
 					}
 					container.Add(body);
 				}
