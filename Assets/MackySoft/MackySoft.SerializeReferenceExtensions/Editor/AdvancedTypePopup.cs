@@ -24,7 +24,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor {
 
 		const int kMaxNamespaceNestCount = 16;
 
-		public static void AddTo (AdvancedDropdownItem root,IEnumerable<Type> types) {
+		public static void AddTo (AdvancedDropdownItem root,IEnumerable<Type> types, bool showFullNamespace = false) {
 			int itemCount = 0;
 
 			// Add null item.
@@ -36,31 +36,41 @@ namespace MackySoft.SerializeReferenceExtensions.Editor {
 			Type[] typeArray = types.OrderByType().ToArray();
 
 			// Single namespace if the root has one namespace and the nest is unbranched.
-			bool isSingleNamespace = true;
-			string[] namespaces = new string[kMaxNamespaceNestCount];
-			foreach (Type type in typeArray) {
-				string[] splittedTypePath = TypeMenuUtility.GetSplittedTypePath(type);
-				if (splittedTypePath.Length <= 1) {
-					continue;
-				}
-				// If they explicitly want sub category, let them do.
-				if (TypeMenuUtility.GetAttribute(type) != null) {
-					isSingleNamespace = false;
-					break;
-				}
-				for (int k = 0;(splittedTypePath.Length - 1) > k;k++) {
-					string ns = namespaces[k];
-					if (ns == null) {
-						namespaces[k] = splittedTypePath[k];
+			bool isSingleNamespace = !showFullNamespace;
+			if (!showFullNamespace)
+			{
+				string[] namespaces = new string[kMaxNamespaceNestCount];
+				foreach (Type type in typeArray)
+				{
+					string[] splittedTypePath = TypeMenuUtility.GetSplittedTypePath(type);
+					if (splittedTypePath.Length <= 1)
+					{
+						continue;
 					}
-					else if (ns != splittedTypePath[k]) {
+					// If they explicitly want sub category, let them do.
+					if (TypeMenuUtility.GetAttribute(type) != null)
+					{
 						isSingleNamespace = false;
 						break;
 					}
-				}
+					for (int k = 0; (splittedTypePath.Length - 1) > k; k++)
+					{
+						string ns = namespaces[k];
+						if (ns == null)
+						{
+							namespaces[k] = splittedTypePath[k];
+						}
+						else if (ns != splittedTypePath[k])
+						{
+							isSingleNamespace = false;
+							break;
+						}
+					}
 
-				if (!isSingleNamespace) {
-					break;
+					if (!isSingleNamespace)
+					{
+						break;
+					}
 				}
 			}
 
@@ -110,11 +120,13 @@ namespace MackySoft.SerializeReferenceExtensions.Editor {
 		static readonly float k_HeaderHeight = EditorGUIUtility.singleLineHeight * 2f;
 
 		Type[] m_Types;
+		bool m_ShowFullNamespace;
 
 		public event Action<AdvancedTypePopupItem> OnItemSelected;
 		
-		public AdvancedTypePopup (IEnumerable<Type> types,int maxLineCount,AdvancedDropdownState state) : base(state) {
+		public AdvancedTypePopup (IEnumerable<Type> types,int maxLineCount,AdvancedDropdownState state, bool showFullNamespace = false) : base(state) {
 			SetTypes(types);
+			m_ShowFullNamespace = showFullNamespace;
 			minimumSize = new Vector2(minimumSize.x,EditorGUIUtility.singleLineHeight * maxLineCount + k_HeaderHeight);
 		}
 
@@ -124,7 +136,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor {
 
 		protected override AdvancedDropdownItem BuildRoot () {
 			var root = new AdvancedDropdownItem("Select Type");
-			AddTo(root,m_Types);
+			AddTo(root,m_Types, m_ShowFullNamespace);
 			return root;
 		}
 

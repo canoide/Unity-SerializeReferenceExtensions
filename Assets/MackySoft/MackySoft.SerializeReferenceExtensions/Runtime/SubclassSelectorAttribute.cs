@@ -13,4 +13,13 @@ public sealed class SubclassSelectorAttribute : PropertyAttribute
 	public bool UseToStringAsLabel { get; set; }
 #endif
 
+	/// <summary>
+	/// If true, the full namespace will be shown in the popup.
+	/// </summary>
+	public bool ShowFullNamespace { get; set; }
+
+	public SubclassSelectorAttribute (bool showFullNamespace = false) {
+		ShowFullNamespace = showFullNamespace;
+	}
+
 }

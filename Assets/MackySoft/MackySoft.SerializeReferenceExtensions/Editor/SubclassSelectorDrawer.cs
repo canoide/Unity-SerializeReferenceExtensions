@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
+using UnityEngine.UIElements;
+using UnityEditor.UIElements;
 
 namespace MackySoft.SerializeReferenceExtensions.Editor
 {
@@ -29,6 +31,112 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 		readonly Dictionary<string,GUIContent> m_TypeNameCaches = new Dictionary<string,GUIContent>();
 
 		SerializedProperty m_TargetProperty;
+
+		public override VisualElement CreatePropertyGUI (SerializedProperty property)
+		{
+			if (property.propertyType != SerializedPropertyType.ManagedReference)
+			{
+				return new Label("The property type is not manage reference.");
+			}
+
+			var container = new VisualElement();
+
+			var targetProperty = property.Copy();
+
+			Action refresh = null;
+			refresh = () => {
+				container.Clear();
+
+				// Header
+				var header = new VisualElement();
+				header.style.flexDirection = FlexDirection.Row;
+				header.AddToClassList(BaseField<object>.ussClassName);
+				header.AddToClassList(BaseField<object>.alignedFieldUssClassName);
+
+				var label = new Label(targetProperty.displayName);
+				label.AddToClassList(BaseField<object>.labelUssClassName);
+				header.Add(label);
+
+				// Dropdown-like Button
+				var button = new Button();
+				button.AddToClassList(BaseField<object>.inputUssClassName);
+				button.AddToClassList("unity-popup-field__input");
+				button.style.flexGrow = 1;
+				button.style.unityTextAlign = TextAnchor.MiddleLeft;
+
+				var textElement = new TextElement();
+				textElement.text = GetTypeName(targetProperty).text;
+				textElement.style.flexGrow = 1;
+				textElement.style.marginLeft = 3;
+				button.Add(textElement);
+
+				var arrowElement = new VisualElement();
+				arrowElement.AddToClassList("unity-popup-field__arrow");
+				button.Add(arrowElement);
+
+				button.clicked += () => {
+					m_TargetProperty = targetProperty;
+					TypePopupCache popup = GetTypePopup(targetProperty);
+
+					Action<AdvancedTypePopupItem> callback = null;
+					callback = item => {
+						popup.TypePopup.OnItemSelected -= callback;
+						refresh();
+					};
+					popup.TypePopup.OnItemSelected += callback;
+
+					popup.TypePopup.Show(button.worldBound);
+				};
+				header.Add(button);
+				container.Add(header);
+
+				// Property Drawer for value
+				if (targetProperty.managedReferenceValue != null) {
+					var body = new VisualElement();
+					body.style.paddingLeft = 15; // Indent
+
+					// Check Custom Drawer
+					PropertyDrawer customDrawer = GetCustomPropertyDrawer(targetProperty);
+					if (customDrawer != null) {
+						VisualElement customElement = null;
+						try {
+							customElement = customDrawer.CreatePropertyGUI(targetProperty);
+						} catch (System.Exception ex) {
+							Debug.LogWarning("Failed to create property GUI for custom drawer: " + ex);
+						}
+
+						if (customElement != null) {
+							body.Add(customElement);
+						} else {
+							// Fallback to IMGUI
+							var imguiContainer = new IMGUIContainer(() => {
+								float height = customDrawer.GetPropertyHeight(targetProperty, GUIContent.none);
+								Rect rect = EditorGUILayout.GetControlRect(true, height);
+								customDrawer.OnGUI(rect, targetProperty, GUIContent.none);
+							});
+							body.Add(imguiContainer);
+						}
+					} else {
+						// Default drawing: iterate children
+						var endProperty = targetProperty.GetEndProperty();
+						var iterator = targetProperty.Copy();
+						iterator.NextVisible(true); // Enter children
+
+						while (!SerializedProperty.EqualContents(iterator, endProperty)) {
+							var propertyField = new PropertyField(iterator.Copy());
+							propertyField.Bind(targetProperty.serializedObject);
+							body.Add(propertyField);
+							iterator.NextVisible(false);
+						}
+					}
+					container.Add(body);
+				}
+			};
+
+			refresh();
+
+			return container;
+		}
 
 		public override void OnGUI (Rect position, SerializedProperty property, GUIContent label)
 		{
@@ -151,10 +259,12 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 				var state = new AdvancedDropdownState();
 
 				Type baseType = ManagedReferenceUtility.GetType(managedReferenceFieldTypename);
+				var subclassSelectorAttribute = (SubclassSelectorAttribute)attribute;
 				var popup = new AdvancedTypePopup(
 					TypeSearch.GetTypes(baseType),
 					k_MaxTypePopupLineCount,
-					state
+					state,
+					subclassSelectorAttribute.ShowFullNamespace
 				);
 				popup.OnItemSelected += item => {
 					Type type = item.Type;
