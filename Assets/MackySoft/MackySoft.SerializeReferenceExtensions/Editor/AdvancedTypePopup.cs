@@ -28,7 +28,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
         private const int MaxNamespaceNestCount = 16;
 
-        public static void AddTo (AdvancedDropdownItem root, IEnumerable<Type> types)
+        public static void AddTo (AdvancedDropdownItem root, IEnumerable<Type> types, bool showFullNamespace = false)
         {
             int itemCount = 0;
 
@@ -42,38 +42,41 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
             Type[] typeArray = types.OrderByType().ToArray();
 
             // Single namespace if the root has one namespace and the nest is unbranched.
-            bool isSingleNamespace = true;
-            string[] namespaces = new string[MaxNamespaceNestCount];
-            foreach (Type type in typeArray)
+            bool isSingleNamespace = !showFullNamespace;
+            if (!showFullNamespace)
             {
-                string[] splittedTypePath = TypeMenuUtility.GetSplittedTypePath(type);
-                if (splittedTypePath.Length <= 1)
+                string[] namespaces = new string[MaxNamespaceNestCount];
+                foreach (Type type in typeArray)
                 {
-                    continue;
-                }
-                // If they explicitly want sub category, let them do.
-                if (TypeMenuUtility.GetAttribute(type) != null)
-                {
-                    isSingleNamespace = false;
-                    break;
-                }
-                for (int k = 0; (splittedTypePath.Length - 1) > k; k++)
-                {
-                    string ns = namespaces[k];
-                    if (ns == null)
+                    string[] splittedTypePath = TypeMenuUtility.GetSplittedTypePath(type);
+                    if (splittedTypePath.Length <= 1)
                     {
-                        namespaces[k] = splittedTypePath[k];
+                        continue;
                     }
-                    else if (ns != splittedTypePath[k])
+                    // If they explicitly want sub category, let them do.
+                    if (TypeMenuUtility.GetAttribute(type) != null)
                     {
                         isSingleNamespace = false;
                         break;
                     }
-                }
+                    for (int k = 0; (splittedTypePath.Length - 1) > k; k++)
+                    {
+                        string ns = namespaces[k];
+                        if (ns == null)
+                        {
+                            namespaces[k] = splittedTypePath[k];
+                        }
+                        else if (ns != splittedTypePath[k])
+                        {
+                            isSingleNamespace = false;
+                            break;
+                        }
+                    }
 
-                if (!isSingleNamespace)
-                {
-                    break;
+                    if (!isSingleNamespace)
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -134,12 +137,14 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
         private static readonly float HeaderHeight = EditorGUIUtility.singleLineHeight * 2f;
 
         private Type[] types;
+        private bool showFullNamespace;
 
         public event Action<AdvancedTypePopupItem> OnItemSelected;
 
-        public AdvancedTypePopup (IEnumerable<Type> types, int maxLineCount, AdvancedDropdownState state) : base(state)
+        public AdvancedTypePopup (IEnumerable<Type> types, int maxLineCount, AdvancedDropdownState state, bool showFullNamespace = false) : base(state)
         {
             SetTypes(types);
+            this.showFullNamespace = showFullNamespace;
             minimumSize = new Vector2(minimumSize.x, EditorGUIUtility.singleLineHeight * maxLineCount + HeaderHeight);
         }
 
@@ -151,7 +156,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
         protected override AdvancedDropdownItem BuildRoot ()
         {
             var root = new AdvancedDropdownItem("Select Type");
-            AddTo(root, types);
+            AddTo(root, types, showFullNamespace);
             return root;
         }
 

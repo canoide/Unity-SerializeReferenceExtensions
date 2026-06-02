@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
+using UnityEngine.UIElements;
+using UnityEditor.UIElements;
 
 namespace MackySoft.SerializeReferenceExtensions.Editor
 {
@@ -32,6 +34,138 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
         private readonly Dictionary<string, GUIContent> typeNameCaches = new Dictionary<string, GUIContent>();
 
         private SerializedProperty targetProperty;
+
+        public override VisualElement CreatePropertyGUI (SerializedProperty property)
+        {
+            if (property.propertyType != SerializedPropertyType.ManagedReference)
+            {
+                return new Label(IsNotManagedReferenceLabel.text);
+            }
+
+            var container = new VisualElement();
+
+            Action refresh = null;
+            refresh = () => {
+                container.Clear();
+
+                var propertyCopy = property.Copy();
+
+                // Header
+                var header = new VisualElement();
+                header.style.flexDirection = FlexDirection.Row;
+
+                var labelElement = new Label();
+                labelElement.text = propertyCopy.displayName;
+                labelElement.style.width = EditorGUIUtility.labelWidth;
+
+#if UNITY_2021_3_OR_NEWER
+                // Override the label text with the ToString() of the managed reference.
+                var subclassSelectorAttribute = (SubclassSelectorAttribute)attribute;
+                if (subclassSelectorAttribute.UseToStringAsLabel && !propertyCopy.hasMultipleDifferentValues)
+                {
+                    object managedReferenceValue = propertyCopy.managedReferenceValue;
+                    if (managedReferenceValue != null)
+                    {
+                        labelElement.text = managedReferenceValue.ToString();
+                    }
+                }
+#endif
+
+                header.Add(labelElement);
+
+                var button = new Button();
+                button.AddToClassList(BaseField<object>.inputUssClassName);
+                button.AddToClassList("unity-popup-field__input");
+                button.style.flexGrow = 1;
+                button.style.unityTextAlign = TextAnchor.MiddleLeft;
+
+                var textElement = new TextElement();
+                textElement.text = GetTypeName(propertyCopy).text;
+                textElement.style.flexGrow = 1;
+                textElement.style.marginLeft = 3;
+                button.Add(textElement);
+
+                var arrowElement = new VisualElement();
+                arrowElement.AddToClassList("unity-popup-field__arrow");
+                button.Add(arrowElement);
+
+                button.clicked += () => {
+                    targetProperty = propertyCopy;
+                    TypePopupCache popup = GetTypePopup(propertyCopy);
+                    popup.TypePopup.Show(button.worldBound);
+                };
+                header.Add(button);
+                container.Add(header);
+
+                // Property Drawer for value
+                if (propertyCopy.managedReferenceValue != null)
+                {
+                    var foldout = new Foldout();
+                    foldout.value = propertyCopy.isExpanded;
+                    foldout.text = "";
+                    foldout.style.marginLeft = -15; // Adjustment for foldout toggle
+                    foldout.RegisterValueChangedCallback(evt => {
+                        property.isExpanded = evt.newValue;
+                    });
+
+                    var body = new VisualElement();
+                    body.style.marginLeft = 15;
+
+                    // Check Custom Drawer
+                    PropertyDrawer customDrawer = GetCustomPropertyDrawer(propertyCopy);
+                    if (customDrawer != null)
+                    {
+                        VisualElement customElement = null;
+                        try
+                        {
+                            customElement = customDrawer.CreatePropertyGUI(propertyCopy);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogWarning("Failed to create property GUI for custom drawer: " + ex);
+                        }
+
+                        if (customElement != null)
+                        {
+                            body.Add(customElement);
+                        }
+                        else
+                        {
+                            // Fallback to IMGUI
+                            var imguiContainer = new IMGUIContainer(() => {
+                                float height = customDrawer.GetPropertyHeight(propertyCopy, GUIContent.none);
+                                Rect rect = EditorGUILayout.GetControlRect(true, height);
+                                customDrawer.OnGUI(rect, propertyCopy, GUIContent.none);
+                            });
+                            body.Add(imguiContainer);
+                        }
+                    }
+                    else
+                    {
+                        // Default drawing: iterate children
+                        var endProperty = propertyCopy.GetEndProperty();
+                        var iterator = propertyCopy.Copy();
+                        iterator.NextVisible(true); // Enter children
+
+                        while (!SerializedProperty.EqualContents(iterator, endProperty))
+                        {
+                            var propertyField = new PropertyField(iterator.Copy());
+                            propertyField.Bind(propertyCopy.serializedObject);
+                            body.Add(propertyField);
+                            iterator.NextVisible(false);
+                        }
+                    }
+                    foldout.Add(body);
+                    container.Add(foldout);
+                }
+            };
+
+            container.TrackPropertyValue(property, _ => refresh());
+
+            refresh();
+
+            return container;
+        }
 
         public override void OnGUI (Rect position, SerializedProperty property, GUIContent label)
         {
@@ -74,7 +208,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
                     Rect foldoutRect = new Rect(position);
                     foldoutRect.height = EditorGUIUtility.singleLineHeight;
 
-#if UNITY_2022_2_OR_NEWER && !UNITY_6000_0_OR_NEWER && !UNITY_2022_3
+#if UNITY_2022_2_OR_NEWER && !UNITY_6000_0_OR_NEWER
                     // NOTE: Position x must be adjusted.
                     // FIXME: Is there a more essential solution...?
                     // The most promising is UI Toolkit, but it is currently unable to reproduce all of SubclassSelector features. (Complete provision of contextual menu, e.g.)
@@ -156,10 +290,12 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
                 Type baseType = ManagedReferenceUtility.GetType(managedReferenceFieldTypename);
                 var types = TypeSearchService.TypeCandiateService.GetDisplayableTypes(baseType);
+                var subclassSelectorAttribute = (SubclassSelectorAttribute)attribute;
                 var popup = new AdvancedTypePopup(
                     types,
                     MaxTypePopupLineCount,
-                    state
+                    state,
+                    subclassSelectorAttribute.ShowFullNamespace
                 );
                 popup.OnItemSelected += item =>
                 {
@@ -180,6 +316,12 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
                 result = new TypePopupCache(popup, state);
                 typePopups.Add(managedReferenceFieldTypename, result);
+            }
+            else
+            {
+                // When we are using multiple drawers for the same field type,
+                // we need to update the targetProperty for the popup before showing it.
+                // However, targetProperty is updated in OnGUI or CreatePropertyGUI before calling GetTypePopup.
             }
             return result;
         }
