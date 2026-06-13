@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -8,7 +8,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
     public static class TypeMenuUtility
     {
 
-        public const string NullDisplayName = "<null>";
+        public const string NullDisplayName = "(null)";
 
         public static AddTypeMenuAttribute GetAttribute (Type type)
         {

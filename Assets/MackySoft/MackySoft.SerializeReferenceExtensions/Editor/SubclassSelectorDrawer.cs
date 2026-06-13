@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
@@ -50,10 +50,6 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
                 var propertyCopy = property.Copy();
 
-                // Header
-                var header = new VisualElement();
-                header.style.flexDirection = FlexDirection.Row;
-
                 var labelElement = new Label();
                 labelElement.text = propertyCopy.displayName;
                 labelElement.style.width = EditorGUIUtility.labelWidth;
@@ -70,8 +66,6 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
                     }
                 }
 #endif
-
-                header.Add(labelElement);
 
                 var button = new Button();
                 button.AddToClassList(BaseField<object>.inputUssClassName);
@@ -94,19 +88,56 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
                     TypePopupCache popup = GetTypePopup(propertyCopy);
                     popup.TypePopup.Show(button.worldBound);
                 };
-                header.Add(button);
-                container.Add(header);
 
-                // Property Drawer for value
-                if (propertyCopy.managedReferenceValue != null)
+                if (propertyCopy.managedReferenceValue == null)
+                {
+                    var header = new VisualElement();
+                    header.style.flexDirection = FlexDirection.Row;
+                    header.Add(labelElement);
+                    header.Add(button);
+                    container.Add(header);
+                }
+                else
                 {
                     var foldout = new Foldout();
                     foldout.value = propertyCopy.isExpanded;
                     foldout.text = "";
-                    foldout.style.marginLeft = -15; // Adjustment for foldout toggle
                     foldout.RegisterValueChangedCallback(evt => {
                         property.isExpanded = evt.newValue;
                     });
+
+                    var toggle = foldout.Q<Toggle>();
+                    if (toggle != null)
+                    {
+                        var toggleInput = toggle.Q(className: "unity-toggle__input");
+                        if (toggleInput != null)
+                        {
+                            toggleInput.style.flexDirection = FlexDirection.Row;
+                            toggleInput.Add(labelElement);
+                            toggleInput.Add(button);
+                            toggleInput.style.alignItems = Align.Center;
+                        }
+                        else
+                        {
+                            toggle.style.flexDirection = FlexDirection.Row;
+                            toggle.Add(labelElement);
+                            toggle.Add(button);
+                        }
+                    }
+                    else
+                    {
+                        foldout.Add(labelElement);
+                        foldout.Add(button);
+                    }
+
+                    var foldoutText = foldout.Q<Label>(className: "unity-toggle__text") ?? foldout.Q<Label>(className: "unity-foldout__text");
+                    if (foldoutText != null)
+                    {
+                        foldoutText.style.display = DisplayStyle.None;
+                    }
+
+                    button.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
+                    button.RegisterCallback<NavigationSubmitEvent>(evt => evt.StopPropagation());
 
                     var body = new VisualElement();
                     body.style.marginLeft = 15;

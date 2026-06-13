@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -155,6 +155,7 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
         protected override AdvancedDropdownItem BuildRoot ()
         {
+            GUI.skin = EditorGUIUtility.GetBuiltinSkin(EditorGUIUtility.isProSkin ? EditorSkin.Scene : EditorSkin.Inspector);
             var root = new AdvancedDropdownItem("Select Type");
             AddTo(root, types, showFullNamespace);
             return root;
